@@ -25,6 +25,7 @@
 #define _XOPEN_SOURCE 700
 #include <errno.h>
 #include <ftw.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifndef OPEN_MAX
+#define OPEN_MAX _POSIX_OPEN_MAX
+#endif
+
+static int changelink = 0;
 static int newgid = 0;
 static int retval = 0;
 static enum { UNSET, COMMANDLINE, RECURSIVE, NONE } follow = UNSET;
@@ -64,10 +70,9 @@ static gid_t strtogid(const char *s)
 
 int main(int argc, char **argv)
 {
-	int c = 0;
-	int changelink = 0;
 	int recursive = 0;
 
+	int c;
 	while ((c = getopt(argc, argv, "hHLPR")) != -1) {
 		switch (c) {
 		case 'h':
@@ -101,14 +106,19 @@ int main(int argc, char **argv)
 	}
 
 	if (optind >= argc - 1) {
-		fprintf(stderr, "chgrp: Group and at least one file are required\n");
+		fprintf(stderr, "chgrp: missing operand\n");
 		return 1;
 	}
 
 	newgid = strtogid(argv[optind++]);
 
+	/* TODO: handle -hHLP */
 	while (optind < argc) { 
-		chgrp(argv[optind++], NULL, 0, NULL);
+		if (recursive) {
+			nftw(argv[optind++], chgrp, OPEN_MAX, 0);
+		} else {
+			chgrp(argv[optind++], NULL, 0, NULL);
+		}
 	}
 
 	return retval;
