@@ -24,6 +24,7 @@
 
 #define _XOPEN_SOURCE 700
 #include <errno.h>
+#include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,17 +32,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define FOLLOWCOMMANDLINE (1)
-#define FOLLOWRECURSIVE (2)
-#define NOFOLLOW (3)
+static int newgid = 0;
+static int retval = 0;
+static enum { UNSET, COMMANDLINE, RECURSIVE, NONE } follow = UNSET;
 
-static int chgrp(gid_t gid, const char *path, int flag)
+int chgrp(const char *p, const struct stat *st, int typeflag, struct FTW *f)
 {
-	(void)flag;
-	if (chown(path, (uid_t)-1, gid) == -1) {
-		fprintf(stderr, "chgrp: Couldn't change group of %s: %s\n", path, strerror(errno));
-		return 1;
+	(void)st; (void)typeflag; (void)f;
+
+	if (chown(p, (uid_t)-1, newgid) == -1) {
+		fprintf(stderr, "chgrp: %s: %s\n", p, strerror(errno));
+		retval = 1;
 	}
+
 	return 0;
 }
 
@@ -61,9 +64,8 @@ static gid_t strtogid(const char *s)
 
 int main(int argc, char **argv)
 {
-	int c = 0, r = 0;
+	int c = 0;
 	int changelink = 0;
-	int flag = 0;
 	int recursive = 0;
 
 	while ((c = getopt(argc, argv, "hHLPR")) != -1) {
@@ -73,15 +75,15 @@ int main(int argc, char **argv)
 			break;
 
 		case 'H':
-			flag = FOLLOWCOMMANDLINE;
+			follow = COMMANDLINE;
 			break;
 
 		case 'L':
-			flag = FOLLOWRECURSIVE;
+			follow = RECURSIVE;
 			break;
 
 		case 'P':
-			flag = NOFOLLOW;
+			follow = NONE;
 			break;
 
 		case 'R':
@@ -103,11 +105,11 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	gid_t gid = strtogid(argv[optind++]);
+	newgid = strtogid(argv[optind++]);
 
 	while (optind < argc) { 
-		r |= chgrp(gid, argv[optind++], flag);
+		chgrp(argv[optind++], NULL, 0, NULL);
 	}
 
-	return r;
+	return retval;
 }
