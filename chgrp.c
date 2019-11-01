@@ -54,7 +54,7 @@ int chgrp(const char *p, const struct stat *st, int typeflag, struct FTW *f)
 	return 0;
 }
 
-static gid_t strtogid(const char *s)
+static gid_t gid_from_string(const char *s)
 {
 	struct group *grp = getgrnam(s);
 	if (grp == NULL) {
@@ -68,7 +68,7 @@ static gid_t strtogid(const char *s)
 	return grp->gr_gid;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 	int recursive = 0;
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	newgid = strtogid(argv[optind++]);
+	newgid = gid_from_string(argv[optind++]);
 
 	/* TODO: handle -hHLP */
 	while (optind < argc) { 
